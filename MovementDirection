@@ -1,0 +1,93 @@
+/*
+ * @author  Tomás de Camino Beck
+ * @version 1.0, 17/07/2015
+ * Uses frame difference to detect if an object is moving left or right.
+ * To do this it stores the location where the difference is found
+ 
+ */
+
+import processing.video.*;
+
+Capture currentFrame;
+PImage prevFrame;
+float diffThreshold = 80;
+static int w=640;
+static int h=480;
+
+int posL[]= new int[h];
+int lastPosL[]= new int[h];
+int posR[]= new int[h];
+int lastPosR[]= new int[h];
+
+void setup() {
+  size(w, h); 
+  currentFrame = new Capture(this, width, height);
+  currentFrame.start(); 
+  prevFrame = createImage(currentFrame.width, currentFrame.height, RGB);
+  textSize(34);
+  for (int i=0;i<h;i++)posR[i]=posL[i]=0;
+}
+
+void draw() {
+  frameRate(8);
+  //capture current frame after copying to previousFrame
+  if (currentFrame.available()) {
+    prevFrame.copy(currentFrame, 0, 0, currentFrame.width, currentFrame.height, 0, 0, currentFrame.width, currentFrame.height); 
+    prevFrame.updatePixels();
+    currentFrame.read();
+  }
+  //loads pixels
+  currentFrame.loadPixels();
+  prevFrame.loadPixels();
+  arrayCopy(posL, lastPosL);
+  arrayCopy(posR, lastPosR);
+  // for every pixel
+  for (int y = 0; y < currentFrame.height; y ++ ) {
+    for (int x = 0; x < currentFrame.width; x ++ ) {
+      //x2 moves backwards
+      int x2=(currentFrame.width-x)-1;
+      //maps form 2D to 1D array
+      int locL = x + y*currentFrame.width;
+      int locR = x2 + y*currentFrame.width; 
+      //get colors from current and previous frames      
+      color currentL = currentFrame.pixels[locL];     
+      color previousL = prevFrame.pixels[locL];
+      color currentR = currentFrame.pixels[locR];     
+      color previousR = prevFrame.pixels[locR];  
+      // calculate the euclidian color distance    
+      float diffL = colorDifference(currentL, previousL);
+      float diffR = colorDifference(currentR, previousR);
+      //if difference greater than threshold
+      if (diffL > diffThreshold)posL[y]=x;
+      if (diffR > diffThreshold)posR[y]=x2;
+    }
+  }
+  image(currentFrame, 0, 0);
+  stroke(255, 0, 0, 100);
+  strokeWeight(5);
+  noFill();
+  beginShape();
+  //gets the total difference
+  float sum=0;
+  for (int i=0;i<h;i+=1) {
+    float p =(posL[i]+posR[i])/2;
+    float lp =(lastPosR[i]+lastPosL[i])/2;
+    sum+=p-lp;
+    if ((p-lp)!=0)curveVertex(p, i);
+  }
+  endShape();
+  if (abs(sum)>500) {
+    if (sum>0) {
+      text("Right", 10, 50);
+    }
+    else {
+      text("Left", 10, 50);
+    }
+  }
+  
+}
+
+//euclidian distance between to RGB colors
+float colorDifference(color c1, color c2) {
+  return  dist(red(c1), green(c1), blue(c1), red(c2), green(c2), blue(c2));
+}
